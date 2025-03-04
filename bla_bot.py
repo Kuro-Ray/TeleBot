@@ -40,6 +40,7 @@ from telegram.ext import (
 )
 
 from staff_info import employee_info
+from schedule import  employee_infos
 from manage_bdays import generate_wish
 from resource_data import get_resources
 
@@ -60,22 +61,16 @@ load_dotenv()
 ENV: str = os.environ.get("ENV", "dev")
 
 # ИНФОРМАЦИЯ О БОТЕ
-BOT_VERSION: str = "1.1"
+BOT_VERSION: str = "актуальная"
 BOT_NAME: str = "Бот"
-BOT_DESCRIPTION: str = """Создан: 07.01.2025.\n
-Эй, я бот написанный на Python. 
+BOT_DESCRIPTION: str = """Создан не для продажи.\n
+Привет, я бот написанный на Python. 
 Так что вы можете буквально заглянуть внутрь меня! - Как я обрабатываю все ваши просьбы...\n
 Кроме того, приветствуется сообщение об ошибках и всегда приветствуются запросы на включение! 🤗\n"""
 
 # Настройки рендеринга
 PORT: str = os.environ.get("PORT", "8443")
 RENDER_APP_URL: str = os.environ.get("RENDER_APP_URL", "")
-
-# Heroku Settings [Depreciated]
-# -----------------------------
-# Uncomment below two lines if you're willing to deploy in Heroku Platform.
-# PORT: str = os.environ.get("PORT", "8443")
-# HEROKU_APP_URL: str = os.environ.get("HEROKU_APP_URL", "")
 
 # ИНФОРМАЦИЯ В ЧАТЕ/ТЕЛЕГРАММЕ
 TELEGRAM_TOKEN: str = os.environ["TELEGRAM_TOKEN"]
@@ -102,6 +97,7 @@ UNI_DESCRIPTION: str = (
 # ВЫБОР ДАННЫХ
 USER_ID, USER_NIC = range(2)
 QUERY_STAFF = range(1)
+QUERY_SCHED = range(1)
 QUERY_USER = range(1)
 ANNOUNCEMENT_QUERY = range(1)
 RESOURCE_QUERY = range(1)
@@ -315,14 +311,14 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             ],
             [
                 KeyboardButton("/kgu"),
-                KeyboardButton("/cancel"),
+                KeyboardButton("/sched"),
             ],
         ],
         resize_keyboard=True,
     )
 
     await update.message.reply_text(
-        f"<b>Привет! 👋 Я {BOT_NAME} и я здесь ради тебя <i>24x7</i> несмотря ни на что 😊</b>"
+        f"<b>Привет! 👋 Я {BOT_NAME} для направления бизнес-информатика, работаю <i>24x7</i> несмотря ни на что 😊</b>"
         "\n\n"
         "<b><u>Основные команды</u></b>"
         "\n\n"
@@ -334,9 +330,11 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "\n\n"
         "<b><u>Университет</u></b>"
         "\n\n"
-        "/resources - 📚 Изучить академические/другие ресурсы"
+        "/resources - 📚 Изучить ресурсы"
         "\n"
         "/staff - 👥 Получить информацию о преподавателях"
+        "\n"
+        "/sched - 📝 расписание"
         "\n"
         f"/{UNI_NAME_SHORT.lower()} - 🎓 Об университете",
         reply_markup=reply_keyboard,
@@ -348,13 +346,13 @@ async def about_bot(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Показывать BOT_VERSION и информацию при вводе команды /about."""
     logger.info("/about command issued by %s", update.effective_user.full_name)
     await update.message.reply_text(
-        f"Я {BOT_NAME} - Версия {BOT_VERSION} 🤩"
+        f"Я {BOT_NAME} - Версия {BOT_VERSION}"
         "\n"
         f"{BOT_DESCRIPTION}"
         "\n\n"
         "Создатель @Kuromaros"
         "\n\n"
-        "Просмотрите мой исходный код <a href='https://github.com'>@GitHub</a>",
+        "Просмотрите мой исходный код <a href='https://github.com/Kuro-Ray/TeleBot'>@GitHub</a>",
         parse_mode=ParseMode.HTML,
     )
 
@@ -413,6 +411,28 @@ async def get_staff_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     logger.info("Received query from user: %s", update.message.text)
     await update.message.reply_text(
         employee_info(update.message.text), parse_mode=ParseMode.HTML
+    )
+
+    return ConversationHandler.END
+
+
+async def sched(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    """Получить поисковый запрос пользователя"""
+    logger.info("/sched command issued by %s", update.effective_user.full_name)
+    logger.info("/sched - Getting user's search query")
+    await update.message.reply_text(
+        "Хорошо... Давайте посмотрим, что вы ищете! 🧐\n"
+        "Пожалуйста, введите запрос (номер и курс):\n\n"
+        "Если вы хотите отменить этот разговор, просто введите /cancel."
+    )
+    return QUERY_SCHED
+
+
+async def get_sched(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Возвращает информацию о сотруднике по запросу пользователя."""
+    logger.info("Received query from user: %s", update.message.text)
+    await update.message.reply_text(
+        employee_infos(update.message.text), parse_mode=ParseMode.HTML
     )
 
     return ConversationHandler.END
@@ -498,7 +518,6 @@ def main() -> None:
     application.add_handler(CommandHandler(UNI_NAME_SHORT.lower(), about_university))
     logger.info("About University handler added")
 
-
     # Ведение разговора – Информация о персонале
     staff_conv_handler = ConversationHandler(
         entry_points=[CommandHandler("staff", staff)],
@@ -511,6 +530,19 @@ def main() -> None:
     )
     application.add_handler(staff_conv_handler)
     logger.info("Staff Info conversation handler added")
+
+    # Ведение разговора – Расписание
+    sched_conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("sched", sched)],
+        states={
+            QUERY_SCHED: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, get_sched)
+            ],
+        },
+        fallbacks=[CommandHandler("cancel", cancel_conversation)],
+    )
+    application.add_handler(sched_conv_handler)
+    logger.info("Sched Info conversation handler added")
 
 
     # Ведение разговора — Ресурсы
