@@ -44,4 +44,4 @@ def get_resources(query: str) -> str:
             if link:
                 message_body += f"🔹 {link}\n"
         message_body += "\n"
-    return message_body
+    return message_body + "\n\n<b>Хотите найти другой предмет? отправьте /resources</b>\n<b>Отправьте /help, чтобы открыть меню.</b>"

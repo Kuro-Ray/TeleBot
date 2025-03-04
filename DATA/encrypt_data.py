@@ -15,6 +15,7 @@ FILES: List[str] = [
     "results.csv",
     "resources.csv",
     "staff_info.txt",
+    "schedule.txt",
 ]
 
 key = Fernet.generate_key()
